@@ -459,8 +459,6 @@ The following extensions are identified as the highest-value directions for impr
 
 **TimeSeriesSplit for cross-validation**: Standard k-fold cross-validation was not used for hyperparameter tuning because it would mix future observations into training folds. TimeSeriesSplit preserves chronological order within the training set, ensuring that each validation fold contains only observations that follow the corresponding training fold in time.
 
-**Treatment of extreme prices**: Prices above 300 EUR/MWh and below -100 EUR/MWh were retained in the training data to ensure the model is exposed to crisis-period behavior. These extreme values do inflate RMSE metrics, but removing them would produce an optimistic evaluation that does not reflect real market conditions.
-
 ---
 
 ## Acknowledgements
