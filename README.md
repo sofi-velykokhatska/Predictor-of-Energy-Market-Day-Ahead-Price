@@ -198,7 +198,7 @@ These features capture the supply-side impact of weather on renewable electricit
 | Feature | Derivation | Physical Meaning |
 |---------|-----------|-----------------|
 | wind_power | wind_speed³ | Proportional to wind turbine power output (cubic relationship from turbine physics) |
-| solar_proxy | radiation.clip(lower=0) | Solar PV generation proxy, clipped to remove any negative values |
+| solar_proxy | radiation| Solar PV generation proxy|
 | precipitation | raw mm | Proxy for cloud cover and reduced solar output |
 
 Raw wind speed is transformed to its cube because wind turbine power output scales with the cube of wind speed according to the Betz law - doubling wind speed produces eight times the power. This domain-specific transformation makes the feature more physically meaningful and improves model performance compared to using raw wind speed.
