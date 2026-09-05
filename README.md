@@ -24,7 +24,7 @@
 Install all dependencies before running the notebooks:
 
 ```bash
-pip install pandas numpy matplotlib seaborn scikit-learn xgboost 
+pip install pandas numpy matplotlib seaborn scikit-learn xgboost flask 
 ```
 
 ### Data Files Required
