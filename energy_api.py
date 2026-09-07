@@ -6,6 +6,21 @@ import os
 
 app = Flask(__name__)
 
+from functools import wraps
+
+API_KEY = os.environ.get("API_KEY")
+
+def require_api_key(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        key = request.headers.get("X-API-Key")
+        if not API_KEY or key != API_KEY:
+            return jsonify({"error": "Unauthorized"}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+# Load the trained model and scaler
+
 # Load the trained model and scaler
 model_path = 'models/energy_model_v1.pkl'
 scaler_path = 'models/scaler_v1.pkl'
@@ -38,6 +53,7 @@ def health():
 
 
 @app.route('/predict', methods=['POST'])
+@require_api_key
 def predict():
     """
     Make a prediction for energy price
@@ -100,6 +116,7 @@ def predict():
 
 
 @app.route('/features', methods=['GET'])
+@require_api_key
 def features():
     """
     Get the list of required features
@@ -123,4 +140,5 @@ if __name__ == '__main__':
     print("   GET  /features   - Get required features")
     print("\n🌐 Starting server at http://0.0.0.0:5000")
     
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port, debug=False)
