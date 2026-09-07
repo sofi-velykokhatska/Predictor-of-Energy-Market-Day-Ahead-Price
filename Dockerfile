@@ -19,9 +19,5 @@ COPY energy_api.py .
 # Expose port 8080
 EXPOSE 8080
 
-# Health check - Docker will monitor if container is alive
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
-
 # Run the API
 CMD ["python", "energy_api.py"]
