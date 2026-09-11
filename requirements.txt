@@ -13,7 +13,6 @@ packaging==26.3
 pandas==2.3.3
 pluggy==1.6.0
 Pygments==2.21.0
-pytest==8.4.2
 python-dateutil==2.9.0.post0
 pytz==2026.3.post1
 scikit-learn==1.6.1
@@ -28,3 +27,4 @@ xgboost==2.1.4
 zipp==3.23.1
 flask-limiter==3.5.0
 pydantic==2.0.0
+pytest==9.1.1 

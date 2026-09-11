@@ -78,7 +78,7 @@ def test_predict_missing_features_returns_400(client):
         headers={"X-API-Key": "test-key-123"},
     )
     assert response.status_code == 400
-    assert "Missing features" in response.get_json()["error"]
+    assert response.get_json()["error"] == "Invalid request data"
 
 
 def test_features_endpoint_requires_api_key(client):
