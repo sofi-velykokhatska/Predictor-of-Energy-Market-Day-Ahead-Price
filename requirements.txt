@@ -26,3 +26,5 @@ tzdata==2026.3
 Werkzeug==3.1.8
 xgboost==2.1.4
 zipp==3.23.1
+flask-limiter==3.5.0
+pydantic==2.0.0
