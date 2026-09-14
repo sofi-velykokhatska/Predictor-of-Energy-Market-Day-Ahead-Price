@@ -4,8 +4,10 @@ import pandas as pd
 import numpy as np
 import os
 from functools import wraps
+from prometheus_flask_exporter import PrometheusMetrics
 
 app = Flask(__name__)
+metrics = PrometheusMetrics(app)
 
 API_KEY = os.environ.get("API_KEY")
 
