@@ -1,15 +1,18 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import joblib
 import pandas as pd
 import numpy as np
 import os
+import csv
 import logging
+from datetime import datetime
 from functools import wraps
 from prometheus_flask_exporter import PrometheusMetrics
 from pydantic import BaseModel, ValidationError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-
+from dotenv import load_dotenv
+load_dotenv()
 # ============ SETUP ============
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
@@ -77,6 +80,18 @@ def require_api_key(f):
         return f(*args, **kwargs)
     return decorated
 
+# ============ DRIFT LOGGING ============
+def log_request_for_drift(data):
+    """Append an incoming prediction request's features to a CSV for later drift analysis."""
+    file_exists = os.path.exists('logged_requests.csv')
+    with open('logged_requests.csv', 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=FEATURES + ['timestamp'])
+        if not file_exists:
+            writer.writeheader()
+        row = {feature: data[feature] for feature in FEATURES}
+        row['timestamp'] = datetime.utcnow().isoformat()
+        writer.writerow(row)
+
 # ============ ENDPOINTS ============
 
 @app.route('/health', methods=['GET'])
@@ -119,6 +134,8 @@ def predict():
 
         logger.info(f"📊 Prediction made: {prediction:.2f} EUR/MWh")
 
+        log_request_for_drift(request.json)
+
         return jsonify({
             'predicted_price_eur_mwh': float(prediction),
             'model_version': 'v1',
@@ -140,6 +157,47 @@ def predict():
             'error': str(e),
             'status': 'failed'
         }), 500
+
+@app.route('/demo-predict', methods=['POST'])
+@limiter.limit("5 per minute")
+def demo_predict():
+    """Public demo endpoint for classroom use — no API key required, tightly rate-limited."""
+    try:
+        req = PredictionRequest(**request.json)
+        load_models()
+
+        df = pd.DataFrame([{
+            "wind_power": req.wind_power,
+            "solar_proxy": req.solar_proxy,
+            "heating_degree": req.heating_degree,
+            "cooling_degree": req.cooling_degree,
+            "precipitation": req.precipitation,
+            "hour": req.hour,
+            "month": req.month,
+            "is_weekend": req.is_weekend,
+            "price_lag_24": req.price_lag_24,
+            "price_lag_168": req.price_lag_168,
+            "gas_price": req.gas_price,
+        }])
+
+        df_scaled = scaler.transform(df)
+        prediction = model.predict(df_scaled)[0]
+
+        return jsonify({
+            'predicted_price_eur_mwh': float(prediction),
+            'status': 'success'
+        }), 200
+
+    except ValidationError as e:
+        return jsonify({'error': 'Invalid request data', 'details': e.errors(), 'status': 'failed'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e), 'status': 'failed'}), 500
+
+
+@app.route('/demo')
+def demo():
+    """Public demo page — no auth required."""
+    return render_template('demo.html')
 
 @app.route('/features', methods=['GET'])
 @require_api_key
@@ -168,3 +226,5 @@ if __name__ == '__main__':
 
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+    

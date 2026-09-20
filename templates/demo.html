@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Day-Ahead Energy Price Predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B1220;
+    --surface: #131B2E;
+    --surface-2: #1B2740;
+    --text: #E8ECF4;
+    --text-dim: #8B96AD;
+    --accent: #FFC857;
+    --accent-dim: #6B5A2E;
+    --good: #3FA796;
+    --line: #24314D;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0B1220; --surface: #131B2E; --surface-2: #1B2740;
+      --text: #E8ECF4; --text-dim: #8B96AD; --accent: #FFC857;
+      --accent-dim: #6B5A2E; --good: #3FA796; --line: #24314D;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B1220; --surface: #131B2E; --surface-2: #1B2740;
+    --text: #E8ECF4; --text-dim: #8B96AD; --accent: #FFC857;
+    --accent-dim: #6B5A2E; --good: #3FA796; --line: #24314D;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height: 100%;
+    padding: 48px 20px 64px;
+  }
+  .wrap { max-width: 620px; margin: 0 auto; }
+
+  .grid-lines {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.25;
+  }
+
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2.1rem;
+    line-height: 1.15;
+    margin: 0 0 8px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.98rem;
+    line-height: 1.5;
+    max-width: 46ch;
+    margin: 0 0 36px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 14px;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+  input, select {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    padding: 10px 12px;
+    width: 100%;
+    transition: border-color 0.15s ease;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  button {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    padding: 12px 20px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+  button:active { transform: scale(0.98); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #16110A;
+    flex: 1;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+  }
+  .btn-secondary:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .result {
+    display: none;
+  }
+  .result.visible { display: block; }
+
+  .result-label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .result-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .result-unit {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+  }
+
+  .error-box {
+    background: rgba(228, 87, 46, 0.12);
+    border: 1px solid #E4572E;
+    color: #F2A88C;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 0.88rem;
+    display: none;
+  }
+  .error-box.visible { display: block; }
+
+  .footnote {
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    margin-top: 32px;
+  }
+  .footnote code {
+    background: var(--surface-2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 480px) {
+    .field-grid { grid-template-columns: 1fr; }
+    h1 { font-size: 1.7rem; }
+    .result-value { font-size: 2.3rem; }
+  }
+</style>
+</head>
+<body>
+<div class="grid-lines"></div>
+<div class="wrap">
+
+  <h1>Day-Ahead Energy Price Predictor</h1>
+  <p class="subtitle">
+    An XGBoost model trained on historical weather, gas prices, and day-ahead
+    electricity prices. Adjust the inputs and predict the expected price per MWh.
+  </p>
+
+  <div class="card">
+    <div class="field-grid">
+      <div class="field">
+        <label for="wind_power">Wind power (MW)</label>
+        <input type="number" id="wind_power" value="5000" step="1">
+      </div>
+      <div class="field">
+        <label for="solar_proxy">Solar proxy</label>
+        <input type="number" id="solar_proxy" value="800" step="1">
+      </div>
+      <div class="field">
+        <label for="heating_degree">Heating degree</label>
+        <input type="number" id="heating_degree" value="5" step="1">
+      </div>
+      <div class="field">
+        <label for="cooling_degree">Cooling degree</label>
+        <input type="number" id="cooling_degree" value="0" step="1">
+      </div>
+      <div class="field">
+        <label for="precipitation">Precipitation (mm)</label>
+        <input type="number" id="precipitation" value="0.5" step="0.1">
+      </div>
+      <div class="field">
+        <label for="hour">Hour of day (0–23)</label>
+        <input type="number" id="hour" value="14" min="0" max="23" step="1">
+      </div>
+      <div class="field">
+        <label for="month">Month (1–12)</label>
+        <input type="number" id="month" value="6" min="1" max="12" step="1">
+      </div>
+      <div class="field">
+        <label for="is_weekend">Day type</label>
+        <select id="is_weekend">
+          <option value="0" selected>Weekday</option>
+          <option value="1">Weekend</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="price_lag_24">Price 24h ago (€/MWh)</label>
+        <input type="number" id="price_lag_24" value="150" step="0.1">
+      </div>
+      <div class="field">
+        <label for="price_lag_168">Price 1 week ago (€/MWh)</label>
+        <input type="number" id="price_lag_168" value="145" step="0.1">
+      </div>
+      <div class="field full">
+        <label for="gas_price">Gas price</label>
+        <input type="number" id="gas_price" value="45" step="0.1">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="predictBtn">Predict price</button>
+      <button class="btn-secondary" id="randomBtn">Randomize</button>
+    </div>
+  </div>
+
+  <div class="card result" id="resultCard">
+    <div class="result-label">Predicted day-ahead price</div>
+    <div class="result-value" id="resultValue">—</div>
+    <div class="result-unit">EUR per MWh</div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <p class="footnote">
+    This calls a live model endpoint (<code>/demo-predict</code>), rate-limited
+    to 5 requests per minute to keep the demo fair for everyone. It is a
+    separate, public-safe endpoint — the production API used elsewhere in this
+    project requires authentication.
+  </p>
+
+</div>
+
+<script>
+  const API_URL = "/demo-predict";
+
+  const fields = ["wind_power","solar_proxy","heating_degree","cooling_degree",
+    "precipitation","hour","month","is_weekend","price_lag_24","price_lag_168","gas_price"];
+
+  const resultCard = document.getElementById("resultCard");
+  const resultValue = document.getElementById("resultValue");
+  const errorBox = document.getElementById("errorBox");
+  const predictBtn = document.getElementById("predictBtn");
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.add("visible");
+    resultCard.classList.remove("visible");
+  }
+
+  function clearError() {
+    errorBox.classList.remove("visible");
+  }
+
+  document.getElementById("predictBtn").addEventListener("click", async () => {
+    clearError();
+    predictBtn.disabled = true;
+    predictBtn.textContent = "Predicting…";
+
+    const payload = {};
+    for (const f of fields) {
+      const el = document.getElementById(f);
+      payload[f] = parseFloat(el.value);
+    }
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          showError("This demo is rate-limited to keep it fair — please wait a moment and try again.");
+        } else {
+          showError(data.error || "Something went wrong. Please check your inputs.");
+        }
+        return;
+      }
+
+      resultValue.textContent = "€" + data.predicted_price_eur_mwh.toFixed(2);
+      resultCard.classList.add("visible");
+    } catch (err) {
+      showError("Couldn't reach the API. If this is the first request in a while, the server may be waking up — try again in 30 seconds.");
+    } finally {
+      predictBtn.disabled = false;
+      predictBtn.textContent = "Predict price";
+    }
+  });
+
+  document.getElementById("randomBtn").addEventListener("click", () => {
+    document.getElementById("wind_power").value = Math.round(2000 + Math.random() * 6000);
+    document.getElementById("solar_proxy").value = Math.round(100 + Math.random() * 1000);
+    document.getElementById("heating_degree").value = Math.round(Math.random() * 12);
+    document.getElementById("cooling_degree").value = Math.round(Math.random() * 6);
+    document.getElementById("precipitation").value = (Math.random() * 3).toFixed(1);
+    document.getElementById("hour").value = Math.round(Math.random() * 23);
+    document.getElementById("month").value = 1 + Math.round(Math.random() * 11);
+    document.getElementById("is_weekend").value = Math.random() > 0.7 ? "1" : "0";
+    document.getElementById("price_lag_24").value = (100 + Math.random() * 100).toFixed(1);
+    document.getElementById("price_lag_168").value = (100 + Math.random() * 100).toFixed(1);
+    document.getElementById("gas_price").value = (35 + Math.random() * 20).toFixed(1);
+  });
+</script>
+</body>
+</html>
