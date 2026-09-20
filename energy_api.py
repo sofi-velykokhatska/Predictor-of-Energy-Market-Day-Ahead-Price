@@ -11,8 +11,7 @@ from prometheus_flask_exporter import PrometheusMetrics
 from pydantic import BaseModel, ValidationError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from dotenv import load_dotenv
-load_dotenv()
+
 # ============ SETUP ============
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
