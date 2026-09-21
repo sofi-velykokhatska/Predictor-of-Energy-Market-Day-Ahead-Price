@@ -1,9 +1,0 @@
-[
-  "test_energy_api.py::test_features_endpoint_requires_api_key",
-  "test_energy_api.py::test_features_endpoint_with_api_key",
-  "test_energy_api.py::test_health_check_returns_200",
-  "test_energy_api.py::test_predict_missing_features_returns_400",
-  "test_energy_api.py::test_predict_with_correct_api_key_succeeds",
-  "test_energy_api.py::test_predict_with_wrong_api_key_is_rejected",
-  "test_energy_api.py::test_predict_without_api_key_is_rejected"
-]
