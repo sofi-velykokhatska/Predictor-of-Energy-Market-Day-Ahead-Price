@@ -16,6 +16,9 @@ COPY models/ models/
 # Copy API code
 COPY energy_api.py .
 
+# Copy templates (demo page)
+COPY templates/ templates/
+
 # Expose port 8080
 EXPOSE 8080
 
