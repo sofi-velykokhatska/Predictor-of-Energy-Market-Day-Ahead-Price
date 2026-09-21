@@ -4,3 +4,6 @@ __pycache__/
 .DS_Store
 venv/
 .venv/
+drift_report.html
+logged_requests.csv
+.pytest_cache/
