@@ -2,6 +2,138 @@
 
 ---
 
+# MLOps Implementation
+
+End-to-end MLOps pipeline for an energy price prediction model. The work spans deployment, CI/CD automation, monitoring, and data drift detection.
+
+## Tech Stack
+
+| Layer | Tools |
+|-------|-------|
+| **Model Persistence** | joblib |
+| **API** | Flask |
+| **Containerization** | Docker |
+| **Hosting** | Render (previously Google Cloud Run) |
+| **CI/CD** | GitHub Actions, pytest |
+| **Input Validation** | Pydantic |
+| **Rate Limiting** | Flask-Limiter |
+| **Metrics Export** | prometheus-flask-exporter |
+| **Metrics Collection** | Prometheus |
+| **Visualization** | Grafana |
+| **Orchestration** | Docker Compose |
+| **Drift Detection** | Evidently AI |
+
+## Phase 1: Deployment
+
+**Goal:** Move the model from a Jupyter notebook to a scalable, accessible service.
+
+### What was done:
+- Saved the trained model and scaler to files with joblib
+- Built a REST API with Flask (3 endpoints: `/predict`, `/health`, `/features`)
+- Packaged the entire application in Docker for reproducible deployments
+- Deployed to Render with request-based billing (no cost when idle)
+
+### Key decisions:
+- **Chose Render over Google Cloud Run** for simplicity: one-click GitHub integration vs. managing projects, services, and IAM permissions
+- **Request-based billing** instead of always-on instances, keeping demo costs at zero
+- **Lazy model loading** (load on first request instead of startup) to avoid timeout failures
+- **Minimal framework** (Flask instead of FastAPI) since only 3 endpoints were needed
+
+### Lessons learned:
+- Port conflicts can break deployments on your laptop but not in the cloud
+- Health checks should be simple; don't duplicate what the hosting service already does
+- Debug mode in Flask adds overhead and leaks internal details—turn it off for production
+
+## Phase 2: CI/CD & Security
+
+**Goal:** Ensure broken code never reaches production, and protect the service from misuse.
+
+### Automated testing:
+- 7 pytest tests run on every code push via GitHub Actions
+- Tests validate: service availability, authentication, input validation, rate limiting
+- Deployment only proceeds if all tests pass (via Render deploy hook)
+
+### Security layers:
+1. **API Key Authentication**: Requests require a valid API key (stored in Render's environment variables, never in code)
+2. **Input Validation** with Pydantic: 11 required fields are checked for type and presence
+3. **Rate Limiting** with Flask-Limiter: 10 predictions/min, 50/hour, 200/day per API key
+
+### Key challenges & solutions:
+| Problem | Root Cause | Solution |
+|---------|-----------|----------|
+| Installation failures | Non-existent pytest version in requirements | Corrected to valid version |
+| Broken on test machine | Test Python version ≠ deployment version | Pinned both to same version |
+| Deployment ignoring test tools | One requirements list for live + test | Split into `requirements.txt` and `requirements-dev.txt` |
+| Merge conflicts lost | Two developers editing same files, fix agreed but not saved | Formalized workflow: PRs + explicit confirmation before merge |
+
+## Phase 3: Monitoring & Observability
+
+**Goal:** See what the service is actually doing, rather than hoping it works.
+
+### Architecture:
+1. **prometheus-flask-exporter**: Service exposes metrics at `/metrics`
+2. **Prometheus**: Scrapes metrics every 15 seconds, stores time-series history
+3. **Grafana**: Reads Prometheus data, renders dashboards
+4. **Docker Compose**: Starts Prometheus + Grafana with proper networking
+
+### Dashboard shows:
+- Request volume and which endpoints are used
+- Latency per request (p50, p95, p99)
+- Success vs. failure rates
+- Request limits being hit
+
+### Critical insight:
+Running Prometheus locally (instead of in the cloud) has a side benefit: it pings the live service every 15 seconds, preventing Render's free plan from putting it to sleep. This keeps a free demo always warm.
+
+### Problem solved:
+Grafana data was lost on container restart. Fixed by using Docker volumes to persist Grafana's configuration outside the container.
+
+## Phase 4: Data Drift Detection
+
+**Goal:** Catch silent failures when the real-world data diverges from training data.
+
+### Why it matters:
+A model can be perfectly stable and still give wrong answers if the input distribution shifts (weather patterns change seasonally, gas prices fluctuate with world events). Without monitoring, this goes unnoticed.
+
+### Implementation:
+1. **Training data snapshot**: Exported exact rows the model was trained on as ground truth
+2. **Request logging**: Every prediction request logs all 11 inputs + timestamp to a persistent store
+3. **Drift detection pipeline**: 
+   - Loads training data distribution
+   - Loads recent production requests
+   - Compares each input using Evidently AI's statistical tests
+   - Produces a report showing which inputs have drifted and by how much
+
+### Report includes:
+- Which of the 11 inputs changed the most
+- Statistical distance metrics (Wasserstein, Jensen-Shannon)
+- Visual histograms of training vs. production distributions
+
+### Current limitations:
+- Requires sufficient production traffic to draw meaningful conclusions
+- Column types (numeric vs. categorical) must be specified to avoid false positives
+- Runs manually; should be automated on a schedule
+
+## What We Learned
+
+**The surprising part:** Almost all time was spent debugging why things failed, not building them in the first place.
+
+Common failure patterns:
+- **Dependency version mismatches** across environments
+- **Implicit assumptions** in setup (library available on laptop but not in CI)
+- **Configuration state lost** when containers restart (solved with Docker volumes)
+- **Tool upgrades breaking old examples** (Evidently's import path changed mid-project)
+
+## Next Steps
+
+- [ ] Automate drift checks on a schedule (daily/weekly)
+- [ ] Set up alerts instead of requiring manual dashboard checks
+- [ ] Connect live weather and gas price APIs for full automation
+- [ ] Build a web UI for non-technical stakeholders to see predictions and drift reports
+
+---
+
+# ML Model 
 ## Table of Contents
 
 1. [Setup and Navigation](#setup-and-navigation)
