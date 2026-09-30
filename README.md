@@ -1,6 +1,7 @@
 # Electricity Price Prediction Based on Weather and Market Signals
 
 ---
+To see the ML model implementation, scroll down
 
 # MLOps Implementation
 
